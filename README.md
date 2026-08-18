@@ -21,6 +21,10 @@ Frontend (index.html/app.js)
 - **FastAPI** recibe el JWT que entrega Supabase Auth, lo verifica y aplica toda la lógica
   de negocio del documento (`Safe_Pickup_Definicion_Completa.md`): quién puede solicitar un
   recojo, quién puede llamar/entregar, verificación de autorización, turnos por jornada, etc.
+  Los tokens de sesión de Supabase Auth se firman con una clave **asimétrica (ES256)**, no
+  con un secreto compartido: `app/auth.py` verifica cada token contra el JWKS público del
+  proyecto (`{SUPABASE_URL}/auth/v1/.well-known/jwks.json`, cacheado en memoria en
+  `app/jwks.py`), no contra un "JWT Secret" copiado a mano.
 - **Row Level Security** está habilitada en todas las tablas pero sin políticas para
   `anon`/`authenticated`: la API pública de Supabase (PostgREST/supabase-js) queda cerrada
   para estas tablas. Sólo este backend, conectado con la cadena de conexión directa de
@@ -36,15 +40,13 @@ Crea (o usa) un proyecto en https://supabase.com y comparte/coloca en `backend/.
    "Transaction pooler" (puerto 6543) o "Session pooler". Cambia el prefijo `postgresql://`
    por `postgresql+asyncpg://` y reemplaza `[YOUR-PASSWORD]` por la contraseña de la base
    de datos que definiste al crear el proyecto.
-2. **`SUPABASE_URL`** — Project Settings → API → Project URL. La usa el frontend para
-   inicializar `supabase-js`.
-3. **`SUPABASE_JWT_SECRET`** — Project Settings → API → JWT Settings → JWT Secret. Con esto
-   FastAPI valida que el token que manda el frontend fue realmente emitido por tu proyecto.
-4. *(Opcional para el MVP)* **`SUPABASE_SERVICE_ROLE_KEY`** — Project Settings → API →
+2. **`SUPABASE_URL`** — Project Settings → API → Project URL. FastAPI la usa tanto para
+   verificar tokens (JWKS) como el frontend para inicializar `supabase-js`.
+3. *(Opcional para el MVP)* **`SUPABASE_SERVICE_ROLE_KEY`** — Project Settings → API →
    Project API keys → `service_role`. Sólo se necesita si más adelante el backend llama a la
    Admin API de Supabase Auth (por ejemplo, para bloquear una cuenta). Es secreta: nunca va
    en el frontend.
-5. El frontend, por separado, necesita **`SUPABASE_URL`** y la clave **`anon` (public)**
+4. El frontend, por separado, necesita **`SUPABASE_URL`** y la clave **`anon` (public)**
    (Project Settings → API → Project API keys → `anon public`) para inicializar
    `supabase-js` y manejar login/signup.
 

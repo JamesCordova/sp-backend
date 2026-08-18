@@ -6,22 +6,31 @@ from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.database import get_db
+from app.jwks import get_jwk
 from app.models import FamilyMember, SchoolUserRole, TeacherClassroom, User
 
 bearer_scheme = HTTPBearer()
 
 
-def decode_supabase_token(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)) -> dict:
-    """Verifica el JWT emitido por Supabase Auth (HS256, JWT secret del proyecto)."""
+async def decode_supabase_token(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)) -> dict:
+    """Verifica el JWT emitido por Supabase Auth contra las claves públicas
+    (JWKS) del proyecto. Los tokens de sesión de Supabase Auth se firman con
+    una clave asimétrica (ES256) identificada por `kid`, no con un secreto
+    compartido."""
+    token = credentials.credentials
     try:
-        payload = jwt.decode(
-            credentials.credentials,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
+        header = jwt.get_unverified_header(token)
+    except JWTError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido o expirado") from exc
+
+    kid = header.get("kid")
+    jwk = await get_jwk(kid) if kid else None
+    if jwk is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido o expirado")
+
+    try:
+        payload = jwt.decode(token, jwk, algorithms=[header.get("alg", "ES256")], audience="authenticated")
     except JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
