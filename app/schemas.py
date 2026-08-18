@@ -25,6 +25,59 @@ class AcademicYearOut(BaseModel):
     status: str
 
 
+class ClassroomIn(BaseModel):
+    academic_year_id: uuid.UUID
+    name: str
+    grade: str
+    section: str | None = None
+
+
+class ClassroomOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    academic_year_id: uuid.UUID
+    name: str
+    grade: str
+    section: str | None
+    status: str
+
+
+class StudentIn(BaseModel):
+    student_code: str
+    first_name: str
+    last_name: str
+    birth_date: date | None = None
+    classroom_id: uuid.UUID | None = None
+
+
+class AssignTeacherIn(BaseModel):
+    email: str
+    is_primary: bool = False
+
+
+class TeacherClassroomOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    teacher_user_id: uuid.UUID
+    classroom_id: uuid.UUID
+    is_primary: bool
+    status: str
+
+
+class GrantRoleIn(BaseModel):
+    email: str
+    role: str
+
+
+class SchoolUserRoleOut(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    email: str | None
+    full_name: str
+    role: str
+    status: str
+
+
 class MeOut(BaseModel):
     id: uuid.UUID
     full_name: str
