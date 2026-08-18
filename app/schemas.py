@@ -47,6 +47,7 @@ class StudentOut(BaseModel):
 class FamilyMemberOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
+    family_id: uuid.UUID
     user_id: uuid.UUID
     relationship_label: str
     family_role: str
