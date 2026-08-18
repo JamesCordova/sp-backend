@@ -13,6 +13,7 @@ from app.models import (
     FamilyMember,
     FamilyStudent,
     PickupAuthorization,
+    School,
     Student,
     User,
 )
@@ -22,6 +23,28 @@ INVITATION_TTL_HOURS = 72
 
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+async def create_family(db: AsyncSession, *, user: User, school_id: uuid.UUID, name: str) -> FamilyMember:
+    school = await db.get(School, school_id)
+    if school is None or school.status != "ACTIVE":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Colegio inválido")
+
+    family = Family(school_id=school_id, name=name)
+    db.add(family)
+    await db.flush()
+
+    owner = FamilyMember(
+        family_id=family.id,
+        user_id=user.id,
+        relationship_label="Titular",
+        family_role="OWNER",
+        status="ACTIVE",
+    )
+    db.add(owner)
+    await db.commit()
+    await db.refresh(owner)
+    return owner
 
 
 async def invite_member(

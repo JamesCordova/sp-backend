@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.models import (
     AuditLog,
@@ -270,6 +271,35 @@ async def deliver_pickup_request(
     return delivery
 
 
+async def get_pickup_request(db: AsyncSession, *, user: User, request_id: uuid.UUID) -> PickupRequest:
+    request_obj = await db.get(PickupRequest, request_id)
+    if request_obj is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada")
+
+    requester = await db.get(FamilyMember, request_obj.requested_by_member_id)
+    is_family_member = (
+        requester is not None
+        and (
+            await db.execute(
+                select(FamilyMember).where(
+                    FamilyMember.family_id == requester.family_id,
+                    FamilyMember.user_id == user.id,
+                    FamilyMember.status == "ACTIVE",
+                    FamilyMember.deleted_at.is_(None),
+                )
+            )
+        ).scalars().first()
+        is not None
+    )
+    if not is_family_member:
+        try:
+            await _require_teacher_for_request(db, user, request_obj)
+        except HTTPException:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes acceso a esta solicitud")
+
+    return request_obj
+
+
 async def cancel_pickup_request(db: AsyncSession, *, user: User, request_id: uuid.UUID) -> PickupRequest:
     request_obj = await db.get(PickupRequest, request_id)
     if request_obj is None:
@@ -288,7 +318,9 @@ async def cancel_pickup_request(db: AsyncSession, *, user: User, request_id: uui
     return request_obj
 
 
-async def classroom_queue(db: AsyncSession, *, user: User, classroom_id: uuid.UUID) -> list[PickupRequest]:
+async def classroom_queue(db: AsyncSession, *, user: User, classroom_id: uuid.UUID) -> list[tuple]:
+    """Devuelve tuplas (PickupRequest, Student, requester User, collector User)
+    con los nombres ya resueltos para que el docente pueda verificar identidad."""
     stmt = select(TeacherClassroom).where(
         TeacherClassroom.classroom_id == classroom_id,
         TeacherClassroom.teacher_user_id == user.id,
@@ -298,9 +330,19 @@ async def classroom_queue(db: AsyncSession, *, user: User, classroom_id: uuid.UU
     if result.scalars().first() is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes esa aula asignada")
 
+    RequesterMember = aliased(FamilyMember)
+    RequesterUser = aliased(User)
+    CollectorMember = aliased(FamilyMember)
+    CollectorUser = aliased(User)
+
     stmt = (
-        select(PickupRequest)
+        select(PickupRequest, Student, RequesterUser, CollectorUser)
         .join(StudentEnrollment, StudentEnrollment.student_id == PickupRequest.student_id)
+        .join(Student, Student.id == PickupRequest.student_id)
+        .join(RequesterMember, RequesterMember.id == PickupRequest.requested_by_member_id)
+        .join(RequesterUser, RequesterUser.id == RequesterMember.user_id)
+        .join(CollectorMember, CollectorMember.id == PickupRequest.intended_collector_member_id)
+        .join(CollectorUser, CollectorUser.id == CollectorMember.user_id)
         .where(
             StudentEnrollment.classroom_id == classroom_id,
             StudentEnrollment.status == "ACTIVE",
@@ -309,4 +351,4 @@ async def classroom_queue(db: AsyncSession, *, user: User, classroom_id: uuid.UU
         .order_by(PickupRequest.turn_number.asc())
     )
     result = await db.execute(stmt)
-    return list(result.scalars().all())
+    return list(result.all())

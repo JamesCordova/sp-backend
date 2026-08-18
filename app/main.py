@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import admin, auth, families, pickup, students, teacher
+from app.routers import admin, auth, families, pickup, schools, students, teacher
 
 app = FastAPI(title="Safe Pickup API", version="0.1.0")
 
@@ -18,6 +18,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(schools.router)
 app.include_router(students.router)
 app.include_router(families.router)
 app.include_router(pickup.router)

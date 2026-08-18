@@ -27,6 +27,15 @@ async def create_request(
     )
 
 
+@router.get("/requests/{request_id}", response_model=PickupRequestOut)
+async def get_request(
+    request_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await pickup_service.get_pickup_request(db, user=user, request_id=request_id)
+
+
 @router.post("/requests/{request_id}/cancel", response_model=PickupRequestOut)
 async def cancel_request(
     request_id: uuid.UUID,

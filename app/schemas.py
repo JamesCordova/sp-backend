@@ -9,12 +9,29 @@ class RoleOut(BaseModel):
     name: str
 
 
+class SchoolOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    name: str
+    code: str
+
+
+class AcademicYearOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    name: str
+    start_date: date
+    end_date: date
+    status: str
+
+
 class MeOut(BaseModel):
     id: uuid.UUID
     full_name: str
     email: str | None
     school_roles: list[dict]
     family_memberships: list[dict]
+    teacher_classrooms: list[dict] = []
 
 
 class StudentOut(BaseModel):
@@ -43,6 +60,11 @@ class FamilyOut(BaseModel):
     name: str
     status: str
     members: list[FamilyMemberOut] = []
+
+
+class CreateFamilyIn(BaseModel):
+    school_id: uuid.UUID
+    name: str
 
 
 class InviteMemberIn(BaseModel):
@@ -76,6 +98,23 @@ class FamilyStudentOut(BaseModel):
     student_id: uuid.UUID
     relationship_type: str
     status: str
+
+
+class FamilyStudentWithStudentOut(FamilyStudentOut):
+    student_code: str
+    first_name: str
+    last_name: str
+
+
+class PendingFamilyStudentOut(BaseModel):
+    id: uuid.UUID
+    family_id: uuid.UUID
+    family_name: str
+    student_id: uuid.UUID
+    student_name: str
+    relationship_type: str
+    status: str
+    created_at: datetime
 
 
 class VerifyFamilyStudentIn(BaseModel):
@@ -133,6 +172,20 @@ class PickupRequestOut(BaseModel):
     status: str
     requested_at: datetime
     called_at: datetime | None
+
+
+class PickupRequestQueueOut(BaseModel):
+    id: uuid.UUID
+    turn_number: int | None
+    status: str
+    requested_at: datetime
+    called_at: datetime | None
+    student_id: uuid.UUID
+    student_name: str
+    requested_by_member_id: uuid.UUID
+    requested_by_name: str
+    intended_collector_member_id: uuid.UUID
+    intended_collector_name: str
 
 
 class DeliverRequestIn(BaseModel):
