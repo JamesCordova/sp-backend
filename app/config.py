@@ -8,10 +8,12 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_jwt_secret: str
     supabase_service_role_key: str | None = None
-    cors_origins: str = "http://127.0.0.1:5500,http://localhost:5500"
+    cors_origins: str = "*"
 
     @property
     def cors_origin_list(self) -> list[str]:
+        if self.cors_origins.strip() == "*":
+            return ["*"]
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
