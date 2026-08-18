@@ -27,9 +27,9 @@ Frontend (index.html/app.js)
   `app/jwks.py`), no contra un "JWT Secret" copiado a mano.
 - **Row Level Security** está habilitada en todas las tablas pero sin políticas para
   `anon`/`authenticated`: la API pública de Supabase (PostgREST/supabase-js) queda cerrada
-  para estas tablas. Sólo este backend, conectado con la cadena de conexión directa de
-  Postgres, puede leer/escribir los datos. Así toda la autorización vive en un solo lugar
-  (Python), no repartida entre RLS y backend.
+  para estas tablas. Sólo este backend, conectado vía el connection pooler de Postgres,
+  puede leer/escribir los datos. Así toda la autorización vive en un solo lugar (Python),
+  no repartida entre RLS y backend.
 
 ## Credenciales de Supabase que necesito
 
@@ -37,9 +37,12 @@ Crea (o usa) un proyecto en https://supabase.com y comparte/coloca en `backend/.
 (copiando `backend/.env.example`):
 
 1. **`DATABASE_URL`** — Project Settings → Database → Connection string → modo
-   "Transaction pooler" (puerto 6543) o "Session pooler". Cambia el prefijo `postgresql://`
-   por `postgresql+asyncpg://` y reemplaza `[YOUR-PASSWORD]` por la contraseña de la base
-   de datos que definiste al crear el proyecto.
+   **"Session pooler"** (puerto 5432). No uses la conexión directa
+   (`db.<ref>.supabase.co`): esa solo resuelve por IPv6, y hosts como Render no tienen
+   salida IPv6, lo que produce `OSError: Network is unreachable` en producción aunque
+   funcione perfecto en tu máquina. Cambia el prefijo `postgresql://` por
+   `postgresql+asyncpg://` y reemplaza `[YOUR-PASSWORD]` por la contraseña de la base de
+   datos que definiste al crear el proyecto.
 2. **`SUPABASE_URL`** — Project Settings → API → Project URL. FastAPI la usa tanto para
    verificar tokens (JWKS) como el frontend para inicializar `supabase-js`.
 3. *(Opcional para el MVP)* **`SUPABASE_SERVICE_ROLE_KEY`** — Project Settings → API →
